@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YNS LIVE - Premium Galaxy</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.2.js"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=ATfsClCXiMMz7YyApME13i3yJkQK4UPDTL3PwPNh10Et5d17z9cpk-6_q0MqvCrVya9T5kwcc-OCY&currency=USD"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root { --neon-pink: #ff0077; --glass: rgba(0, 0, 0, 0.9); }
+        body { margin: 0; font-family: 'Poppins', sans-serif; background: #000; color: white; }
+        .glass-panel { background: var(--glass); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; }
+        .page { display: none; min-height: 100vh; padding: 80px 15px 100px; }
+        .active-page { display: block; }
+        #video-grid { width: 100%; height: 100%; background: #111; position: absolute; inset: 0; z-index: 1; }
+        .ui-overlay { position: relative; z-index: 10; height: 100%; pointer-events: none; }
+        .ui-overlay * { pointer-events: auto; }
+        .gift-btn { background: linear-gradient(45deg, #f09, #f05); border-radius: 50%; width: 50px; height: 50px; display: flex; items-center; justify-center; }
+    </style>
+</head>
+<body>
+
+    <div id="login-page" class="flex items-center justify-center min-h-screen px-6">
+        <div class="glass-panel p-8 w-full max-w-md text-center">
+            <h1 onclick="secretAdminCheck()" class="text-4xl font-bold text-pink-600 mb-6 cursor-pointer">YNS LIVE</h1>
+            <input id="email" type="email" placeholder="Email" class="w-full p-4 bg-white/5 border border-white/10 rounded-xl mb-4 outline-none">
+            <input id="password" type="password" placeholder="Password" class="w-full p-4 bg-white/5 border border-white/10 rounded-xl mb-6 outline-none">
+            <button onclick="handleLogin()" class="w-full bg-pink-600 p-4 rounded-xl font-bold">JOIN GALAXY</button>
+        </div>
+    </div>
+
+    <div id="app-content" class="hidden">
+        <header class="fixed top-0 w-full z-50 p-4 flex justify-between items-center bg-black/80 backdrop-blur-md">
+            <span onclick="secretAdminCheck()" class="text-2xl font-black text-pink-600">YNS</span>
+            <div onclick="showPage('wallet')" class="bg-white/10 px-4 py-1.5 rounded-full flex items-center gap-2 border border-pink-500/30">
+                <i class="fas fa-gem text-blue-400"></i><span id="coin-balance">0</span>
+            </div>
+        </header>
+
+        <div id="home-page" class="page active-page">
+            <h2 class="text-xl font-bold mb-4">Private Video Calls</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass-panel p-3 text-center">
+                    <img src="https://i.pravatar.cc/150?u=1" class="w-20 h-20 rounded-full mx-auto mb-2 border-2 border-pink-500">
+                    <p class="font-bold text-sm">Maya (Private)</p>
+                    <button onclick="startPrivateCall('maya')" class="mt-2 bg-green-600 text-[10px] px-4 py-2 rounded-full font-bold">START 1:1 CALL</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="live-room" class="hidden fixed inset-0 bg-black z-[100]">
+            <div id="video-grid"></div>
+            <div class="ui-overlay flex flex-col justify-end p-6">
+                <div id="chat-box" class="h-40 overflow-y-auto mb-4 text-sm drop-shadow-lg"></div>
+                <div class="flex items-center gap-3">
+                    <input id="chat-input" class="flex-1 bg-black/40 border border-white/20 p-3 rounded-full text-sm" placeholder="Message...">
+                    <button onclick="toggleGifts()" class="gift-btn"><i class="fas fa-gift"></i></button>
+                    <button onclick="endCall()" class="bg-red-600 w-[50px] h-[50px] rounded-full"><i class="fas fa-phone-slash"></i></button>
+                </div>
+            </div>
+
+            <div id="gift-box" class="hidden absolute bottom-24 right-6 w-64 glass-panel p-4 z-[110]">
+                <p class="text-xs font-bold mb-3 border-b border-white/10 pb-2">Send a Gift</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <div onclick="sendGift('Rose', 10, '')" class="bg-white/5 p-2 rounded text-center cursor-pointer">
+                        <span class="text-xl"></span><p class="text-[10px]">10</p>
+                    </div>
+                    <div onclick="sendGift('Diamond', 100, '')" class="bg-white/5 p-2 rounded text-center cursor-pointer">
+                        <span class="text-xl"></span><p class="text-[10px]">100</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="profile-page" class="page text-center">
+            <div class="glass-panel p-8">
+                <div class="w-24 h-24 bg-pink-600 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-bold">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h2 id="profile-email" class="text-lg font-bold mb-2">User</h2>
+                <div class="flex justify-around mt-6 border-t border-white/10 pt-6">
+                    <div><p class="text-pink-500 font-bold" id="profile-coins">0</p><p class="text-xs text-gray-400">Coins</p></div>
+                    <div><p class="text-pink-500 font-bold">0</p><p class="text-xs text-gray-400">Level</p></div>
+                </div>
+                <button onclick="auth.signOut(); location.reload();" class="mt-8 text-red-500 text-sm font-bold">LOGOUT</button>
+            </div>
+        </div>
+
+        <div id="wallet-page" class="page">
+            <div class="glass-panel p-6 text-center">
+                <h2 class="text-2xl font-bold mb-6">Top Up</h2>
+                <div id="paypal-button-container" class="mb-6"></div>
+                <p class="text-[10px] text-gray-400">Security provided by PayPal</p>
+            </div>
+        </div>
+
+        <nav class="fixed bottom-0 w-full bg-black/90 p-4 flex justify-around border-t border-white/10 z-50">
+            <i onclick="showPage('home')" class="fas fa-home text-xl opacity-50 active:opacity-100"></i>
+            <i onclick="startPrivateCall('random')" class="fas fa-video text-xl text-pink-600"></i>
+            <i onclick="showPage('profile')" class="fas fa-user text-xl opacity-50"></i>
+            <i onclick="showPage('wallet')" class="fas fa-wallet text-xl opacity-50"></i>
+        </nav>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwDUe5E8qRY1dbZzUQJu9eCAKBS7YSHVU",
+            authDomain: "live-e6771.firebaseapp.com",
+            projectId: "live-e6771",
+            storageBucket: "live-e6771.firebasestorage.app",
+            messagingSenderId: "570901004231",
+            appId: "1:570901004231:web:220679cf41cf55b98023e2"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const AGORA_APP_ID = "4f4465a9dea94c92bce4d6d9d8bec1ce";
+        let client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        let localTracks = [];
+        let currentUser = null;
+
+        // AUTH
+        async function handleLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            try {
+                const res = await auth.signInWithEmailAndPassword(email, password);
+                initUser(res.user);
+            } catch (e) {
+                const res = await auth.createUserWithEmailAndPassword(email, password);
+                await db.collection('profiles').doc(res.user.uid).set({ email, coins: 0 });
+                initUser(res.user);
+            }
+        }
+
+        function initUser(user) {
+            currentUser = user;
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('app-content').classList.remove('hidden');
+            document.getElementById('profile-email').innerText = user.email;
+            syncData();
+        }
+
+        function syncData() {
+            db.collection('profiles').doc(currentUser.uid).onSnapshot(doc => {
+                if(doc.exists) {
+                    const c = doc.data().coins;
+                    document.getElementById('coin-balance').innerText = c;
+                    document.getElementById('profile-coins').innerText = c;
+                }
+            });
+        }
+
+        // 1:1 PRIVATE VIDEO CALL & CAMERA FIX
+        async function startPrivateCall(channel) {
+            document.getElementById('live-room').classList.remove('hidden');
+            try {
+                const uid = await client.join(AGORA_APP_ID, channel, null, null);
+                
+                // Camera & Mic Permissions
+                localTracks = await AgoraRTC.createMicrophoneAndCameraTracks();
+                
+                // Play Video in Grid
+                localTracks[1].play("video-grid");
+                
+                await client.publish(localTracks);
+                console.log("Call Started");
+            } catch (e) {
+                alert("Camera Permission Denied!");
+                endCall();
+            }
+        }
+
+        function endCall() {
+            localTracks.forEach(t => { t.stop(); t.close(); });
+            client.leave();
+            document.getElementById('live-room').classList.add('hidden');
+            document.getElementById('gift-box').classList.add('hidden');
+        }
+
+        // GIFTS
+        function toggleGifts() {
+            document.getElementById('gift-box').classList.toggle('hidden');
+        }
+
+        async function sendGift(name, price, emoji) {
+            const doc = await db.collection('profiles').doc(currentUser.uid).get();
+            if(doc.data().coins >= price) {
+                await db.collection('profiles').doc(currentUser.uid).update({
+                    coins: firebase.firestore.FieldValue.increment(-price)
+                });
+                document.getElementById('chat-box').innerHTML += `<p class="text-pink-400 font-bold">Me: Sent ${emoji} ${name}</p>`;
+                toggleGifts();
+            } else {
+                alert("Insufficient Coins!");
+            }
+        }
+
+        // UTILS
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+            document.getElementById(id + '-page').classList.add('active-page');
+        }
+
+        // PAYPAL
+        paypal.Buttons({
+            createOrder: (data, actions) => {
+                return actions.order.create({ purchase_units: [{ amount: { value: '5.00' } }] });
+            },
+            onApprove: (data, actions) => {
+                return actions.order.capture().then(() => {
+                    db.collection('profiles').doc(currentUser.uid).update({
+                        coins: firebase.firestore.FieldValue.increment(500)
+                    });
+                    alert("Success! 500 Coins added.");
+                });
+            }
+        }).render('#paypal-button-container');
+
+        // ADMIN
+        let taps = 0;
+        function secretAdminCheck() {
+            taps++;
+            if(taps === 5) {
+                const p = prompt("Admin Pass:");
+                if(p === "admin123") alert("Admin mode ready!");
+                taps = 0;
+            }
+            setTimeout(() => taps = 0, 2000);
+        }
+    </script>
+</body>
+</html>
